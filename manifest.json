@@ -1,0 +1,7 @@
+{
+  "name": "PlayerInventoryStacks",
+  "version_number": "1.0.0",
+  "website_url": "https://github.com/N0x1/PlanetCrafter-PlayerInventoryStacks",
+  "description": "Player backpack stacks of 64 with quantity labels. Containers remain unstacked. Normal click moves one; Shift/accessibility-click quick transfers.",
+  "dependencies": ["BepInEx-BepInExPack-5.4.2305"]
+}

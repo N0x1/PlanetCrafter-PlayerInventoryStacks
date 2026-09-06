@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net472</TargetFramework>
+    <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
+    <GameManaged Condition="'$(GameManaged)' == ''">C:\Program Files (x86)\Steam\steamapps\common\The Planet Crafter\Planet Crafter_Data\Managed</GameManaged>
+    <FrameworkPathOverride>$(GameManaged)</FrameworkPathOverride>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="$(GameManaged)\netstandard.dll"><Private>true</Private></Reference>
+    <Compile Include="..\src\StackLayout.cs" Link="StackLayout.cs" />
+    <Compile Include="..\src\Backpacks.cs" Link="Backpacks.cs" />
+    <Compile Include="..\src\Plugin.cs" Link="Plugin.cs" />
+    <Reference Include="..\lib\*.dll" />
+    <Reference Include="$(GameManaged)\*.dll" Exclude="$(GameManaged)\mscorlib.dll;$(GameManaged)\netstandard.dll;$(GameManaged)\System*.dll;$(GameManaged)\Mono*.dll"><Private>true</Private></Reference>
+  </ItemGroup>
+</Project>
