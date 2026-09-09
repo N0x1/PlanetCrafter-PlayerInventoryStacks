@@ -26,7 +26,7 @@ The mod retains individual world objects and native save data. It groups compati
 
 If a required patch fails, the plugin removes its own patches and logs the error. Successful startup writes this line to the profile's `BepInEx/LogOutput.log`:
 
-`Player Inventory Stacks 1.0.1 loaded: 64 items per backpack stack; containers unchanged.`
+`Player Inventory Stacks 1.0.2 loaded: 64 items per backpack stack; containers unchanged.`
 
 ## Manual installation
 

@@ -13,7 +13,7 @@ using UnityEngine.InputSystem;
 
 namespace PlayerInventoryStacks;
 
-[BepInPlugin(Id, "Player Inventory Stacks", "1.0.1")]
+[BepInPlugin(Id, "Player Inventory Stacks", "1.0.2")]
 [BepInProcess("Planet Crafter.exe")]
 public sealed class Plugin : BaseUnityPlugin
 {
@@ -26,7 +26,7 @@ public sealed class Plugin : BaseUnityPlugin
         try
         {
             harmony.PatchAll(typeof(Plugin).Assembly);
-            Logger.LogInfo("Player Inventory Stacks 1.0.1 loaded: 64 items per backpack stack; containers unchanged.");
+            Logger.LogInfo("Player Inventory Stacks 1.0.2 loaded: 64 items per backpack stack; containers unchanged.");
         }
         catch (Exception ex)
         {
