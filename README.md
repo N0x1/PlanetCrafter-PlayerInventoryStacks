@@ -8,7 +8,7 @@ Chests, storage containers, machines, vehicles and equipped-item slots keep thei
 
 1. Select **The Planet Crafter** and your profile in r2modman.
 2. Install **BepInExPack by BepInEx**, version **5.4.2305** or later, from the Online list. This is the mod loader, not another gameplay mod. [Official package](https://thunderstore.io/c/the-planet-crafter/p/BepInEx/BepInExPack/).
-3. Use **Import local mod** and select `PlayerInventoryStacks-1.0.0.zip`. Depending on r2modman version, this is under the Profile menu / Import-Update or Settings / Profile.
+3. Use **Import local mod** and select `PlayerInventoryStacks-1.0.1.zip`. Depending on r2modman version, this is under the Profile menu / Import-Update or Settings / Profile.
 4. Click **Start modded**.
 
 ## Moving and using items

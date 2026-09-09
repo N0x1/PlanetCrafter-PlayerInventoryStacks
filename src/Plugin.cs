@@ -13,7 +13,7 @@ using UnityEngine.InputSystem;
 
 namespace PlayerInventoryStacks;
 
-[BepInPlugin(Id, "Player Inventory Stacks", "1.0.0")]
+[BepInPlugin(Id, "Player Inventory Stacks", "1.0.1")]
 [BepInProcess("Planet Crafter.exe")]
 public sealed class Plugin : BaseUnityPlugin
 {
@@ -26,7 +26,7 @@ public sealed class Plugin : BaseUnityPlugin
         try
         {
             harmony.PatchAll(typeof(Plugin).Assembly);
-            Logger.LogInfo("Player Inventory Stacks 1.0.0 loaded: 64 items per backpack stack; containers unchanged.");
+            Logger.LogInfo("Player Inventory Stacks 1.0.1 loaded: 64 items per backpack stack; containers unchanged.");
         }
         catch (Exception ex)
         {
@@ -74,7 +74,7 @@ internal static class InventoryFull
     static bool Prefix(Inventory __instance, ref bool __result)
     {
         if (!Backpacks.IsPlayer(__instance)) return true;
-        __result = Backpacks.Layout(__instance).Count >= __instance.GetSize();
+        __result = Backpacks.IsFull(__instance);
         return false;
     }
 }
@@ -112,7 +112,9 @@ internal static class DisplayStacks
         __state = null;
         if (!Backpacks.IsPlayer(____inventory)) return;
         __state = Backpacks.Layout(____inventory);
-        inventoryWorldObjects = __state.Select(s => s.Items[0]).ToList().AsReadOnly();
+        var visibleItems = new List<WorldObject>(__state.Count);
+        foreach (var stack in __state) visibleItems.Add(stack.Items[0]);
+        inventoryWorldObjects = visibleItems.AsReadOnly();
     }
 
     static void Postfix(Inventory ____inventory, UnityEngine.UI.GridLayoutGroup ____grid, List<StackLayout.Stack<WorldObject>> __state)
@@ -121,13 +123,14 @@ internal static class DisplayStacks
         // Vanilla destruction is deferred: only the last GetSize() grid children
         // belong to the freshly rebuilt display, not the old pending destruction UI.
         var blocks = ____grid.GetComponentsInChildren<InventoryBlock>();
-        blocks = blocks.Skip(Math.Max(0, blocks.Length - ____inventory.GetSize())).ToArray();
-        for (int i = 0; i < Math.Min(blocks.Length, __state.Count); i++)
+        int firstNewBlock = Math.Max(0, blocks.Length - ____inventory.GetSize());
+        int visibleCount = Math.Min(blocks.Length - firstNewBlock, __state.Count);
+        for (int i = 0; i < visibleCount; i++)
         {
             int count = __state[i].Items.Count;
             if (count <= 1) continue;
             var go = new GameObject("PlayerStackCount", typeof(RectTransform), typeof(TextMeshProUGUI));
-            go.transform.SetParent(blocks[i].transform, false);
+            go.transform.SetParent(blocks[firstNewBlock + i].transform, false);
             var rect = (RectTransform)go.transform;
             rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one;
             rect.offsetMin = new Vector2(3, 3); rect.offsetMax = new Vector2(-5, -3);

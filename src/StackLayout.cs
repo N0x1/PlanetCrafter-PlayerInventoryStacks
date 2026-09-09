@@ -13,13 +13,14 @@ internal static class StackLayout
         internal readonly List<T> Items = new List<T>();
     }
 
-    internal static List<Stack<T>> Create<T>(IEnumerable<T> items, Func<T, string> key)
+    internal static List<Stack<T>> Create<T, TKey>(IEnumerable<T> items, Func<T, TKey> key,
+        IEqualityComparer<TKey> comparer = null)
     {
         var result = new List<Stack<T>>();
-        var open = new Dictionary<string, Stack<T>>(StringComparer.Ordinal);
+        var open = new Dictionary<TKey, Stack<T>>(comparer ?? EqualityComparer<TKey>.Default);
         foreach (var item in items)
         {
-            string id = key(item);
+            TKey id = key(item);
             if (!open.TryGetValue(id, out var stack) || stack.Items.Count == Limit)
             {
                 stack = new Stack<T>();
@@ -31,14 +32,23 @@ internal static class StackLayout
         return result;
     }
 
-    internal static bool CanAdd<T>(IEnumerable<T> items, T candidate, int slots, Func<T, string> key)
+    internal static bool CanAdd<T, TKey>(IEnumerable<T> items, T candidate, int slots, Func<T, TKey> key,
+        IEqualityComparer<TKey> comparer = null)
     {
-        var stacks = Create(items, key);
-        if (stacks.Count < slots) return true;
-        if (stacks.Count > slots) return false;
-        string id = key(candidate);
-        foreach (var stack in stacks)
-            if (stack.Items.Count < Limit && key(stack.Items[0]) == id) return true;
-        return false;
+        var equality = comparer ?? EqualityComparer<TKey>.Default;
+        var counts = new Dictionary<TKey, int>(equality);
+        int usedSlots = 0;
+        foreach (var item in items)
+        {
+            TKey id = key(item);
+            counts.TryGetValue(id, out int count);
+            if (count % Limit == 0) usedSlots++;
+            counts[id] = count + 1;
+        }
+
+        TKey candidateId = key(candidate);
+        if (usedSlots > slots) return false;
+        return (counts.TryGetValue(candidateId, out int candidateCount) && candidateCount % Limit != 0)
+            || usedSlots < slots;
     }
 }

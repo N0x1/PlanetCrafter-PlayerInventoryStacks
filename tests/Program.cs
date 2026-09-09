@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using PlayerInventoryStacks;
@@ -54,15 +57,30 @@ var shrink = StackLayout.Create(shrinkItems, Backpacks.Key);
 Check(shrink.Take(1).SelectMany(s => s.Items).Count() == 64 && shrink.Skip(1).SelectMany(s => s.Items).Count() == 3,
     "Backpack shrink keeps 64 iron and selects only overflow stacks");
 var a = Item(iron); var b = Item(iron);
-Check(Backpacks.Key(a) == Backpacks.Key(b), "Ordinary identical items share key");
+Check(Backpacks.Key(a).Equals(Backpacks.Key(b)), "Ordinary identical items share key");
 b.SetEnergy(0.25f);
-Check(Backpacks.Key(a) != Backpacks.Key(b), "Different battery charge stays separate");
+Check(!Backpacks.Key(a).Equals(Backpacks.Key(b)), "Different battery charge stays separate");
 b.SetEnergy(1); b.SetText("Named item");
-Check(Backpacks.Key(a) != Backpacks.Key(b), "Named items stay separate");
+Check(!Backpacks.Key(a).Equals(Backpacks.Key(b)), "Named items stay separate");
 b.SetText(""); b.SetLinkedGroups(new List<Group> { cobalt });
-Check(Backpacks.Key(a) != Backpacks.Key(b), "Different blueprint/DNA contents stay separate");
+Check(!Backpacks.Key(a).Equals(Backpacks.Key(b)), "Different blueprint/DNA contents stay separate");
 b.SetLinkedGroups(null); b.SetColor(new Color(1, 0, 0, 1));
-Check(Backpacks.Key(a) != Backpacks.Key(b), "Different item colors stay separate");
+Check(!Backpacks.Key(a).Equals(Backpacks.Key(b)), "Different item colors stay separate");
+b.SetColor(default); b.SetText(""); b.SetLinkedGroups(new List<Group>()); b.SetPanelsId(new List<int>());
+Check(Backpacks.Key(a).Equals(Backpacks.Key(b)), "Null and empty optional item state remain compatible");
+b.SetSetting(7);
+Check(!Backpacks.Key(a).Equals(Backpacks.Key(b)), "Different item settings stay separate");
+b.SetSetting(0); b.SetPanelsId(new List<int> { 12 });
+Check(!Backpacks.Key(a).Equals(Backpacks.Key(b)), "Different panel contents stay separate");
+b.SetPanelsId(null); b.SetLinkedInventoryId(42);
+Check(!Backpacks.Key(a).Equals(Backpacks.Key(b)), "Items owning an inventory stay separate");
+b.SetLinkedInventoryId(0); b.SetLinkedWorldObject(42);
+Check(!Backpacks.Key(a).Equals(Backpacks.Key(b)), "Items linked to a world object stay separate");
+b.SetLinkedWorldObject(0); b.SetLockInInventoryTime(42f);
+Check(!Backpacks.Key(a).Equals(Backpacks.Key(b)), "Items with an inventory lock stay separate");
+var secondaryInventoryItem = new WorldObject(next++, iron, Vector3.zero, Quaternion.identity, 0, 0,
+    default, null, null, 0, new List<int> { 42 });
+Check(!Backpacks.Key(a).Equals(Backpacks.Key(secondaryInventoryItem)), "Items owning secondary inventories stay separate");
 var interleaved = new[] { Item(iron), Item(cobalt), Item(iron), Item(titanium), Item(cobalt) };
 var arranged = StackLayout.Create(interleaved, Backpacks.Key);
 Check(arranged.Select(s => s.Items.Count).SequenceEqual(new[] { 2, 2, 1 }) && arranged.Select(s => s.Items[0].GetGroup()).SequenceEqual(new[] { iron, cobalt, titanium }),
@@ -116,6 +134,45 @@ for (int trial = 0; trial < 500; trial++)
     if (actual != (expected <= slots)) throw new Exception("Random capacity mismatch");
 }
 Check(true, "500 randomized capacity comparisons against independent group-count calculation");
+
+// Compare the optimized dismantling capacity path with the allocation-heavy
+// string-key implementation used in 1.0.0.
+string LegacyKey(WorldObject item)
+{
+    var builder = new StringBuilder();
+    void Add(object value)
+    {
+        string part = Convert.ToString(value, CultureInfo.InvariantCulture) ?? "";
+        builder.Append(part.Length).Append(':').Append(part).Append('|');
+    }
+    Add(item.GetGroup().GetId()); Add(item.GetText()); Add(item.GetSetting());
+    Add(item.GetGeneticTraitType()); Add(item.GetGeneticTraitValue());
+    var color = item.GetColor(); Add(color.r); Add(color.g); Add(color.b); Add(color.a);
+    Add(item.GetEnergy()); Add(item.GetGrowth()); Add(item.GetHunger()); Add(item.GetPetTime());
+    Add(item.GetCount().x); Add(item.GetCount().y); Add(item.GetPlanetLinkedHash());
+    var groups = item.GetLinkedGroups(); Add(groups?.Count ?? 0);
+    if (groups != null) foreach (var group in groups) Add(group.GetId());
+    var panels = item.GetPanelsId(); Add(panels?.Count ?? 0);
+    if (panels != null) foreach (int panel in panels) Add(panel);
+    return builder.ToString();
+}
+long Measure(Action action, int iterations)
+{
+    GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+    var timer = Stopwatch.StartNew();
+    for (int i = 0; i < iterations; i++) action();
+    timer.Stop();
+    return timer.ElapsedTicks;
+}
+var performanceGroups = Enumerable.Range(0, 8).Select(i => Group("Perf" + i)).ToArray();
+var performanceItems = Enumerable.Range(0, 4096).Select(i => Item(performanceGroups[i % performanceGroups.Length])).ToList();
+var performanceInventory = new Inventory(1, 64, performanceItems);
+_ = StackLayout.Create(performanceItems, LegacyKey).Count;
+_ = Backpacks.IsFull(performanceInventory);
+long legacyTicks = Measure(() => _ = StackLayout.Create(performanceItems, LegacyKey).Count, 20);
+long optimizedTicks = Measure(() => _ = Backpacks.IsFull(performanceInventory), 20);
+Check(optimizedTicks < legacyTicks,
+    $"Optimized 4,096-item capacity scan is faster ({optimizedTicks * 1000.0 / Stopwatch.Frequency:F1} ms vs {legacyTicks * 1000.0 / Stopwatch.Frequency:F1} ms for 20 scans)");
 Backpacks.Clear();
 Check(!Backpacks.IsPlayer(backpack), "World reset removes old backpack IDs");
 
